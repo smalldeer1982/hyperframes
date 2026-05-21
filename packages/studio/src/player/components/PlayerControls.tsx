@@ -20,6 +20,7 @@ const SHORTCUT_SECTIONS = [
       { key: "⇧L", label: "Toggle loop" },
       { key: "←/→", label: "Step 1 frame" },
       { key: "⇧←/⇧→", label: "Step 10 frames" },
+      { key: "F", label: "Toggle fullscreen" },
     ],
   },
   {
@@ -49,12 +50,16 @@ interface PlayerControlsProps {
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
   disabled?: boolean;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export const PlayerControls = memo(function PlayerControls({
   onTogglePlay,
   onSeek,
   disabled = false,
+  isFullscreen = false,
+  onToggleFullscreen,
 }: PlayerControlsProps) {
   // Subscribe to only the fields we render — each selector prevents cascading re-renders
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -594,6 +599,60 @@ export const PlayerControls = memo(function PlayerControls({
           <path d="M21 13v2a4 4 0 0 1-4 4H3" />
         </svg>
       </button>
+
+      {/* Fullscreen toggle */}
+      {onToggleFullscreen && (
+        <button
+          type="button"
+          onClick={() => {
+            trackStudioEvent("playback", { action: "fullscreen_toggle", active: !isFullscreen });
+            onToggleFullscreen();
+          }}
+          className={`h-7 w-7 flex-shrink-0 flex items-center justify-center rounded-md border transition-colors ${
+            isFullscreen
+              ? "text-studio-accent bg-studio-accent/10 border-studio-accent/30"
+              : "border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:bg-neutral-800"
+          }`}
+          title={isFullscreen ? "Exit fullscreen (F)" : "Enter fullscreen (F)"}
+          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        >
+          {isFullscreen ? (
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+              <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+              <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+              <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+            </svg>
+          ) : (
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+              <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+              <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+              <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+            </svg>
+          )}
+        </button>
+      )}
 
       {/* Keyboard shortcuts + frame jump + work area — click to open panel */}
       <div ref={shortcutsPanelRef} className="relative flex-shrink-0">

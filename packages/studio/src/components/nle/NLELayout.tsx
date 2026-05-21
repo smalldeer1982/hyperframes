@@ -1,4 +1,12 @@
-import { useState, useCallback, useRef, useEffect, memo, type ReactNode } from "react";
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useSyncExternalStore,
+  memo,
+  type ReactNode,
+} from "react";
 import { useMountEffect } from "../../hooks/useMountEffect";
 import { useTimelinePlayer, PlayerControls, Timeline, usePlayerStore } from "../../player";
 import type { TimelineElement } from "../../player";
@@ -70,6 +78,15 @@ interface NLELayoutProps {
 const MIN_TIMELINE_H = 100;
 const DEFAULT_TIMELINE_H = 220;
 const MIN_PREVIEW_H = 120;
+
+function subscribeFullscreen(cb: () => void) {
+  document.addEventListener("fullscreenchange", cb);
+  return () => document.removeEventListener("fullscreenchange", cb);
+}
+
+function getFullscreenElement() {
+  return document.fullscreenElement;
+}
 
 export function shouldDisableTimelineWhileCompositionLoading(compositionLoading: boolean): boolean {
   return compositionLoading;
@@ -248,9 +265,20 @@ export const NLELayout = memo(function NLELayout({
     onCompositionLoadingChangeParent?.(compositionLoading);
   }, [compositionLoading, onCompositionLoadingChangeParent]);
 
+  const fullscreenElement = useSyncExternalStore(subscribeFullscreen, getFullscreenElement);
   const isTimelineVisible = timelineVisible ?? true;
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isFullscreen = fullscreenElement === containerRef.current && fullscreenElement != null;
+
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void containerRef.current.requestFullscreen();
+    }
+  }, []);
 
   const currentLevel = compositionStack[compositionStack.length - 1];
   const directUrl = compositionStack.length > 1 ? currentLevel.previewUrl : undefined;
@@ -312,6 +340,7 @@ export const NLELayout = memo(function NLELayout({
       className="flex flex-col h-full min-h-0 bg-neutral-950"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
+      data-studio-fullscreen-target=""
     >
       {/* Preview + player controls */}
       <div className="flex-1 min-h-0 flex flex-col">
@@ -326,20 +355,26 @@ export const NLELayout = memo(function NLELayout({
             refreshKey={refreshKey}
             suppressLoadingOverlay={hasLoadedOnceRef.current}
           />
-          {previewOverlay}
+          {!isFullscreen && previewOverlay}
         </div>
         <div className="bg-neutral-950 border-t border-neutral-800/50 flex-shrink-0">
-          {compositionStack.length > 1 && (
+          {!isFullscreen && compositionStack.length > 1 && (
             <CompositionBreadcrumb
               stack={compositionStack}
               onNavigate={handleNavigateComposition}
             />
           )}
-          <PlayerControls onTogglePlay={togglePlay} onSeek={seek} disabled={timelineDisabled} />
+          <PlayerControls
+            onTogglePlay={togglePlay}
+            onSeek={seek}
+            disabled={timelineDisabled}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+          />
         </div>
       </div>
 
-      {isTimelineVisible ? (
+      {!isFullscreen && isTimelineVisible ? (
         <>
           {/* Resize divider */}
           <div
@@ -396,7 +431,7 @@ export const NLELayout = memo(function NLELayout({
             )}
           </div>
         </>
-      ) : onToggleTimeline ? (
+      ) : !isFullscreen && onToggleTimeline ? (
         <div className="flex-shrink-0 border-t border-neutral-800/50 bg-neutral-950/96">
           <div className="flex h-10 items-center justify-between px-3">
             <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-500">
